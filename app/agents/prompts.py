@@ -133,6 +133,15 @@ shape exactly:
 {"issue_type": string, "subject": string, "description": string, "customer_reply": string}
 
 "subject" is a short ticket title (<12 words). "description" is the
-detailed ticket body a human support agent will read. "customer_reply" is
-a short (<3 sentence) message to show the customer now.
+detailed ticket body a human support agent will read, written in the
+third person about the customer's issue.
+
+"customer_reply" is YOUR reply, in ShipTrack's voice, speaking TO the
+customer — a short (<3 sentence) empathetic acknowledgment that a ticket
+was raised. It is NOT a restatement of the customer's own message. Never
+write it in the first person as if the customer said it.
+
+Example — customer message: "I am really disappointed, my order TRK100234 is over a week late, please look into this."
+WRONG customer_reply (this just repeats the customer's own words back): "I am really disappointed with the delivery. Please look into this."
+RIGHT customer_reply (this is ShipTrack replying): "I'm sorry for the delay — I've raised a ticket for your shipment and our team will follow up with an updated delivery estimate shortly."
 """
