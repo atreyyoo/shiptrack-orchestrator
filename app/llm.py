@@ -13,7 +13,6 @@ backends is an .env change, not a code change.
 """
 import json
 import logging
-import random
 import re
 
 from app.config import settings
@@ -198,21 +197,24 @@ def _mock_tracking(user_prompt: str) -> str:
 
 
 def _mock_escalation(user_prompt: str) -> str:
+    # Priority is no longer part of this agent's job (see derive_priority in
+    # app/tools/ticket_tools.py) — mock only needs to pick issue_type.
     lower = user_prompt.lower()
     if "damaged" in lower or "broken" in lower:
-        issue_type, priority = "damaged", "high"
+        issue_type = "damaged"
     elif "lost" in lower or "missing" in lower or "never arrived" in lower:
-        issue_type, priority = "lost", "urgent"
+        issue_type = "lost"
     elif "wrong address" in lower:
-        issue_type, priority = "wrong_address", "medium"
+        issue_type = "wrong_address"
     elif "unsatisfactory" in lower or "not helpful" in lower or "don't like" in lower or "didn't like" in lower:
-        issue_type, priority = "unsatisfactory_response", "low"
+        issue_type = "unsatisfactory_response"
+    elif "delayed" in lower or "delay" in lower or "late" in lower:
+        issue_type = "delayed"
     else:
-        issue_type, priority = "other", random.choice(["low", "medium"])
+        issue_type = "other"
 
     return json.dumps({
         "issue_type": issue_type,
-        "priority": priority,
         "subject": f"[mock] Customer issue: {issue_type.replace('_', ' ')}",
         "description": f"[mock-drafted ticket] Customer reported an issue classified as '{issue_type}'. "
                         f"Original context: {user_prompt[:400]}",

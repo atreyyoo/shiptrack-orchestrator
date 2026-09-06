@@ -39,10 +39,15 @@ CREATE INDEX idx_shipment_events_shipment_id ON shipment_events(shipment_id, occ
 -- later turns / ticket creation can resolve a shipment without the caller
 -- repeating it.
 CREATE TABLE conversations (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_email          TEXT,
-    last_tracking_number    TEXT,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_email              TEXT,
+    last_tracking_number        TEXT,
+    -- Ticket-intake state (app/tools/ticket_intake_tool.py): how many of the
+    -- fixed clarifying questions have been asked in this conversation, and
+    -- which ones, so a vague complaint can't skip straight to a ticket.
+    clarifying_questions_asked  INTEGER NOT NULL DEFAULT 0,
+    clarifying_questions        JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE conversation_turns (
