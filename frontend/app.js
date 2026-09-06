@@ -1,6 +1,23 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
 
+  // crypto.randomUUID() only exists in a "secure context" (localhost/127.0.0.1
+  // over HTTP, or any HTTPS origin) — it's undefined if this page is loaded
+  // from e.g. http://0.0.0.0:8000 (a bind address, not a real host) or an
+  // older browser. Fall back to a plain Math.random UUID so the app still
+  // works regardless of hostname; these ids are just client-side correlation
+  // ids, not security tokens, so this fallback is perfectly fine.
+  function newId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
   const state = {
     conversationId: null,
     busy: false,
@@ -229,7 +246,7 @@
     appendUserMessage(text);
     showThinking();
 
-    const turnId = crypto.randomUUID();
+    const turnId = newId();
     const label = `Sending: "${text.length > 40 ? text.slice(0, 40) + '…' : text}"`;
     const stopPolling = startTracePolling(turnId, label);
 
@@ -257,7 +274,7 @@
   }
 
   async function raiseTicket(messageId, note) {
-    const turnId = crypto.randomUUID();
+    const turnId = newId();
     const stopPolling = startTracePolling(turnId, 'Raising ticket');
     try {
       const res = await fetch('/ticket', {
@@ -288,7 +305,7 @@
   // ---------------- setup ----------------
 
   function newConversation() {
-    state.conversationId = crypto.randomUUID();
+    state.conversationId = newId();
     messagesEl.innerHTML = '';
     traceLogEl.innerHTML = '';
     convBadge.textContent = 'conv: ' + shortId(state.conversationId);
