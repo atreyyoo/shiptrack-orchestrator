@@ -17,17 +17,16 @@ CLARIFYING_QUESTIONS = [
 MAX_CLARIFYING_QUESTIONS = len(CLARIFYING_QUESTIONS)
 
 
-def check_readiness(*, questions_asked: int, tracking_number_resolved: bool, user_turn_count: int) -> dict:
+def check_readiness(*, questions_asked: int, tracking_number_resolved: bool) -> dict:
     """Returns {"ready": bool, "question": str|None}.
 
-    Ready as soon as ANY of these hold:
-      - a real shipment was already resolved (found=true) — the complaint is
-        already specific enough to act on
-      - this is at least the customer's 2nd message (they've had a chance to
-        add detail without being asked)
-      - the fixed question list has been exhausted (never loop forever)
+    Deliberately scoped to the complaint itself, not the whole conversation:
+    no "2nd turn overall" shortcut, because that counted unrelated earlier
+    turns (a greeting, an unrelated tracking question) as progress on a
+    complaint that hadn't even started yet. Ready only once a real shipment
+    is resolved, or once every fixed question has actually been asked.
     """
-    ready = tracking_number_resolved or user_turn_count >= 2 or questions_asked >= MAX_CLARIFYING_QUESTIONS
+    ready = tracking_number_resolved or questions_asked >= MAX_CLARIFYING_QUESTIONS
     if ready:
         return {"ready": True, "question": None}
     return {"ready": False, "question": CLARIFYING_QUESTIONS[questions_asked]}
