@@ -146,17 +146,16 @@ async def chat(req: ChatRequest):
 
         # Ticket intake gate — deterministic, no LLM (same as GRIP's
         # ticket_intake tool): a vague complaint gets a clarifying question
-        # instead of an immediately-filed, thin ticket.
-        user_turn_count = sum(1 for t in history if t["role"] == "user") + 1
+        # instead of an immediately-filed, thin ticket. Scoped to the
+        # complaint itself — no "2nd turn overall" shortcut, so an unrelated
+        # earlier turn (a greeting, a tracking question) can't skip this.
         async with tracer.step(None, "check_intake_readiness", {
             "questions_asked": conversation.get("clarifying_questions_asked", 0),
             "tracking_number_resolved": ctx["found"],
-            "user_turn_count": user_turn_count,
         }) as out:
             readiness = check_readiness(
                 questions_asked=conversation.get("clarifying_questions_asked", 0),
                 tracking_number_resolved=ctx["found"],
-                user_turn_count=user_turn_count,
             )
             out["readiness"] = readiness
 
