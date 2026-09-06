@@ -1,7 +1,10 @@
 """The Escalation Agent — drafts a support ticket (and a customer-facing
 reply) from conversation context. Used both for direct complaints
 (orchestrator intent = file_complaint) and for the 'I didn't like that
-answer, raise a ticket' feedback path."""
+answer, raise a ticket' feedback path.
+
+Deliberately does NOT decide priority — see app/tools/ticket_tools.py's
+derive_priority(), which computes it from fixed business rules instead."""
 import json
 import logging
 from typing import Any, Optional
@@ -12,7 +15,6 @@ from app.llm import LLMClient
 logger = logging.getLogger("shiptrack.agents.escalation")
 
 VALID_ISSUE_TYPES = {"damaged", "lost", "delayed", "wrong_address", "unsatisfactory_response", "other"}
-VALID_PRIORITIES = {"low", "medium", "high", "urgent"}
 
 
 class EscalationAgent:
@@ -38,13 +40,8 @@ class EscalationAgent:
         if issue_type not in VALID_ISSUE_TYPES:
             issue_type = "other"
 
-        priority = data.get("priority")
-        if priority not in VALID_PRIORITIES:
-            priority = "medium"
-
         return {
             "issue_type": issue_type,
-            "priority": priority,
             "subject": data.get("subject") or "Customer support issue",
             "description": data.get("description") or question,
             "customer_reply": data.get("customer_reply")

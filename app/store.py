@@ -7,12 +7,13 @@ import asyncpg
 from app.utils import to_uuid
 
 
+_CONVERSATION_COLUMNS = "id, customer_email, last_tracking_number, clarifying_questions_asked, clarifying_questions"
+
+
 async def get_or_create_conversation(pool: asyncpg.Pool, conversation_id: str | None, customer_email: str | None) -> dict:
     if conversation_id:
         cid = to_uuid(conversation_id)
-        row = await pool.fetchrow(
-            "SELECT id, customer_email, last_tracking_number FROM conversations WHERE id = $1", cid
-        )
+        row = await pool.fetchrow(f"SELECT {_CONVERSATION_COLUMNS} FROM conversations WHERE id = $1", cid)
         if row:
             if customer_email and not row["customer_email"]:
                 await pool.execute("UPDATE conversations SET customer_email = $1 WHERE id = $2", customer_email, cid)
@@ -21,9 +22,9 @@ async def get_or_create_conversation(pool: asyncpg.Pool, conversation_id: str | 
                 return data
             return dict(row)
         row = await pool.fetchrow(
-            """
+            f"""
             INSERT INTO conversations (id, customer_email) VALUES ($1, $2)
-            RETURNING id, customer_email, last_tracking_number
+            RETURNING {_CONVERSATION_COLUMNS}
             """,
             cid,
             customer_email,
@@ -31,9 +32,9 @@ async def get_or_create_conversation(pool: asyncpg.Pool, conversation_id: str | 
         return dict(row)
 
     row = await pool.fetchrow(
-        """
+        f"""
         INSERT INTO conversations (customer_email) VALUES ($1)
-        RETURNING id, customer_email, last_tracking_number
+        RETURNING {_CONVERSATION_COLUMNS}
         """,
         customer_email,
     )
@@ -42,7 +43,7 @@ async def get_or_create_conversation(pool: asyncpg.Pool, conversation_id: str | 
 
 async def get_conversation(pool: asyncpg.Pool, conversation_id: str) -> dict | None:
     row = await pool.fetchrow(
-        "SELECT id, customer_email, last_tracking_number, created_at FROM conversations WHERE id = $1",
+        f"SELECT {_CONVERSATION_COLUMNS}, created_at FROM conversations WHERE id = $1",
         to_uuid(conversation_id),
     )
     return dict(row) if row else None
@@ -53,6 +54,21 @@ async def set_last_tracking_number(pool: asyncpg.Pool, conversation_id: str, tra
         "UPDATE conversations SET last_tracking_number = $1 WHERE id = $2",
         tracking_number,
         to_uuid(conversation_id),
+    )
+
+
+async def record_clarifying_question(pool: asyncpg.Pool, conversation_id: str, question: str) -> None:
+    """Bumps the counter and appends the question text — see
+    app/tools/ticket_intake_tool.py for how these get read back."""
+    await pool.execute(
+        """
+        UPDATE conversations
+        SET clarifying_questions_asked = clarifying_questions_asked + 1,
+            clarifying_questions = clarifying_questions || $2::jsonb
+        WHERE id = $1
+        """,
+        to_uuid(conversation_id),
+        [question],
     )
 
 
