@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ShipTrack Orchestrator</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">📦 ShipTrack <span class="subtitle">Orchestrator Demo</span></div>
+    <div class="status">
+      <span id="llm-badge" class="badge badge-dim">LLM: …</span>
+      <span id="conv-badge" class="badge badge-dim">conv: …</span>
+      <button id="new-conv-btn" class="ghost-btn" type="button">New conversation</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="chat-panel">
+      <div id="messages" class="messages"></div>
+      <form id="chat-form" class="composer">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Type a message…"
+          autocomplete="off"
+        />
+        <button type="submit" id="send-btn">Send</button>
+      </form>
+    </section>
+
+    <section class="trace-panel">
+      <div class="trace-header">
+        <span>⚡ Live Orchestrator Trace</span>
+        <span id="trace-status" class="trace-status">idle</span>
+      </div>
+      <div id="trace-log" class="trace-log"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+{
+  "info": {
+    "_postman_id": "b6f2a2b0-0a1a-4c9a-9c1a-shiptrack0001",
+    "name": "ShipTrack Orchestrator",
+    "description": "Demo collection for the ShipTrack orchestrator pipeline: API call -> DB query -> LLM context -> output, with live traces. Run requests top to bottom in a folder — conversationId/messageId are captured automatically from responses into collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "conversationId", "value": "" },
+    { "key": "messageId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "1. Direct DB Lookup (no LLM)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/shipments/TRK100987",
+          "host": ["{{baseUrl}}"],
+          "path": ["shipments", "TRK100987"]
+        },
+        "description": "Raw Postgres lookup — demonstrates the 'DB query' leg in isolation, no agent/LLM involved. Try TRK100234 (in transit), TRK100987 (delayed/customs hold), TRK101122 (out for delivery), TRK101555 (delivered)."
+      }
+    },
+    {
+      "name": "2. Chat — Track a Shipment",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_email\": \"alice@example.com\",\n  \"message\": \"Hi, where is my shipment TRK100987?\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] }
+      }
+    },
+    {
+      "name": "3. Chat — File a Complaint",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"My package TRK100987 arrived damaged, this is unacceptable\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Routes to the Escalation Agent -> creates a support ticket directly (no feedback step needed)."
+      }
+    },
+    {
+      "name": "4. Chat — General Question",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hi there, how does shipment tracking work?\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "No tracking number -> Orchestrator routes to general_faq; TrackingAgent answers without DB grounding. Uses its own fresh conversation (leave conversation_id blank) to avoid inheriting a sticky tracking number from request #2."
+      }
+    },
+    {
+      "name": "5. Feedback — Not Helpful",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "console.log(pm.response.json());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message_id\": \"{{messageId}}\",\n  \"helpful\": false\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/feedback", "host": ["{{baseUrl}}"], "path": ["feedback"] },
+        "description": "Run request #2 first so {{messageId}} points at an assistant turn. Response offers to raise a ticket — this is the 'don't like the answer' path."
+      }
+    },
+    {
+      "name": "6. Raise Ticket (from disliked answer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "console.log(pm.response.json());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message_id\": \"{{messageId}}\",\n  \"note\": \"This didn't tell me when I'll actually get my package\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/ticket", "host": ["{{baseUrl}}"], "path": ["ticket"] },
+        "description": "The Escalation Agent drafts + files a ticket from the conversation context, classified as issue_type=unsatisfactory_response."
+      }
+    },
+    {
+      "name": "7. Get Conversation History",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/conversations/{{conversationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["conversations", "{{conversationId}}"]
+        }
+      }
+    },
+    {
+      "name": "8. Get Trace (persisted, replay after the fact)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trace/{{conversationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["trace", "{{conversationId}}"]
+        },
+        "description": "Same steps you saw live in the server console, replayable via API — every agent decision, DB query, and duration."
+      }
+    },
+    {
+      "name": "9. Get Customer's Shipments",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/customers/alice@example.com/shipments",
+          "host": ["{{baseUrl}}"],
+          "path": ["customers", "alice@example.com", "shipments"]
+        }
+      }
+    }
+  ]
+}
