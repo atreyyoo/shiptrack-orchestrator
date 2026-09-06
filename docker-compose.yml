@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: shiptrack-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shiptrack
+      POSTGRES_PASSWORD: shiptrack
+      POSTGRES_DB: shiptrack
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - shiptrack_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shiptrack -d shiptrack"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  shiptrack_pgdata:
