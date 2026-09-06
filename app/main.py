@@ -29,7 +29,8 @@ from app.models import (
     TicketResponse,
 )
 from app.tools.shipment_tools import GET_SHIPMENT_SQL, get_shipment_status, lookup_customer_shipments
-from app.tools.ticket_tools import CREATE_SUPPORT_TICKET_SQL, create_support_ticket
+from app.tools.ticket_intake_tool import check_readiness
+from app.tools.ticket_tools import CREATE_SUPPORT_TICKET_SQL, create_support_ticket, derive_priority
 from app.tracing import Tracer
 
 logging.basicConfig(
@@ -140,26 +141,55 @@ async def chat(req: ChatRequest):
     tracking_number = decision.get("tracking_number") or conversation.get("last_tracking_number")
 
     if intent == "file_complaint":
-        agent_used = "EscalationAgent"
         ctx = await build_tracking_context(pool, tracer, tracking_number)
         shipment_context = ctx if ctx["found"] else None
 
+        # Ticket intake gate — deterministic, no LLM (same as GRIP's
+        # ticket_intake tool): a vague complaint gets a clarifying question
+        # instead of an immediately-filed, thin ticket.
+        user_turn_count = sum(1 for t in history if t["role"] == "user") + 1
+        async with tracer.step(None, "check_intake_readiness", {
+            "questions_asked": conversation.get("clarifying_questions_asked", 0),
+            "tracking_number_resolved": ctx["found"],
+            "user_turn_count": user_turn_count,
+        }) as out:
+            readiness = check_readiness(
+                questions_asked=conversation.get("clarifying_questions_asked", 0),
+                tracking_number_resolved=ctx["found"],
+                user_turn_count=user_turn_count,
+            )
+            out["readiness"] = readiness
+
+        if not readiness["ready"]:
+            agent_used = "TicketIntake"
+            answer = readiness["question"]
+            await store.record_clarifying_question(pool, conversation_id, answer)
+            message_id = await store.add_turn(pool, conversation_id, "assistant", answer, intent=intent, agent_used=agent_used)
+            return ChatResponse(
+                conversation_id=conversation_id, turn_id=turn_id, message_id=str(message_id),
+                intent=intent, agent_used=agent_used, answer=answer, trace=tracer.events,
+            )
+
+        agent_used = "EscalationAgent"
         async with tracer.step("EscalationAgent", "draft_ticket", {}) as out:
             draft = await asyncio.to_thread(escalation_agent.draft, req.message, shipment_context)
             out["issue_type"] = draft["issue_type"]
-            out["priority"] = draft["priority"]
+
+        async with tracer.step(None, "compute_priority", {"issue_type": draft["issue_type"]}) as out:
+            priority = derive_priority(draft["issue_type"], shipment_context)
+            out["priority"] = priority
 
         shipment_id = ctx["shipment"]["id"] if ctx["found"] else None
         async with tracer.step(None, "db_write:create_support_ticket", {
             "sql": CREATE_SUPPORT_TICKET_SQL,
-            "params": [conversation_id, shipment_id, draft["issue_type"], draft["priority"], draft["subject"], draft["description"]],
+            "params": [conversation_id, shipment_id, draft["issue_type"], priority, draft["subject"], draft["description"]],
         }) as out:
             ticket_id = await create_support_ticket(
                 pool,
                 conversation_id=conversation_id,
                 shipment_id=shipment_id,
                 issue_type=draft["issue_type"],
-                priority=draft["priority"],
+                priority=priority,
                 subject=draft["subject"],
                 description=draft["description"],
             )
@@ -265,19 +295,22 @@ async def raise_ticket(req: TicketRequest):
     async with tracer.step("EscalationAgent", "draft_ticket", {"source": "feedback"}) as out:
         draft = await asyncio.to_thread(escalation_agent.draft, complaint_text, shipment_context, req.note)
         out["issue_type"] = draft["issue_type"]
-        out["priority"] = draft["priority"]
+
+    async with tracer.step(None, "compute_priority", {"issue_type": draft["issue_type"]}) as out:
+        priority = derive_priority(draft["issue_type"], shipment_context)
+        out["priority"] = priority
 
     shipment_id = ctx["shipment"]["id"] if ctx["found"] else None
     async with tracer.step(None, "db_write:create_support_ticket", {
         "sql": CREATE_SUPPORT_TICKET_SQL,
-        "params": [req.conversation_id, shipment_id, draft["issue_type"], draft["priority"], draft["subject"], draft["description"]],
+        "params": [req.conversation_id, shipment_id, draft["issue_type"], priority, draft["subject"], draft["description"]],
     }) as out:
         ticket_id = await create_support_ticket(
             pool,
             conversation_id=req.conversation_id,
             shipment_id=shipment_id,
             issue_type=draft["issue_type"],
-            priority=draft["priority"],
+            priority=priority,
             subject=draft["subject"],
             description=draft["description"],
         )
@@ -287,7 +320,7 @@ async def raise_ticket(req: TicketRequest):
         ticket_id=ticket_id,
         turn_id=turn_id,
         issue_type=draft["issue_type"],
-        priority=draft["priority"],
+        priority=priority,
         subject=draft["subject"],
         description=draft["description"],
         customer_reply=draft["customer_reply"],

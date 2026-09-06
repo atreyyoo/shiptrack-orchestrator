@@ -119,13 +119,13 @@ reply to send back to the customer confirming the ticket was raised.
 
 Classify the issue as exactly one of: "damaged", "lost", "delayed",
 "wrong_address", "unsatisfactory_response", "other".
-Assign a priority of exactly one of: "low", "medium", "high", "urgent"
-based on severity (e.g. lost/urgent shipments are higher priority than a
-general dissatisfaction with wording).
+
+You do NOT assign a priority — that is computed separately from fixed
+business rules, not by you.
 
 Respond with STRICT JSON only, no prose, no markdown fences, matching this
 shape exactly:
-{"issue_type": string, "priority": string, "subject": string, "description": string, "customer_reply": string}
+{"issue_type": string, "subject": string, "description": string, "customer_reply": string}
 
 "subject" is a short ticket title (<12 words). "description" is the
 detailed ticket body a human support agent will read. "customer_reply" is

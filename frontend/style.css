@@ -327,6 +327,9 @@ body {
 .trace-line.agent-guardrail { border-left-color: #f472b6; }
 .trace-line.agent-guardrail .t-head { color: #f9a8d4; }
 
+.trace-line.agent-ticketintake { border-left-color: #818cf8; }
+.trace-line.agent-ticketintake .t-head { color: #a5b4fc; }
+
 .trace-line.status-error { border-left-color: #f87171; }
 .trace-line.status-error .t-head { color: #fca5a5; }
 
