@@ -21,6 +21,11 @@
   const state = {
     conversationId: null,
     busy: false,
+    // Usage-history dropdown for the current pending free-text field
+    // (job/warehouse/material/wbs — see app/tools/pr_intake_tool.py:
+    // HISTORY_FIELDS). null = the current question doesn't have one at all;
+    // [] = it does, just nothing recorded yet; [...] = pick from these.
+    fieldHistory: null,
   };
 
   const messagesEl = $('#messages');
@@ -32,6 +37,7 @@
   const newConvBtn = $('#new-conv-btn');
   const llmBadge = $('#llm-badge');
   const convBadge = $('#conv-badge');
+  const historyDropdown = $('#history-dropdown');
 
   function shortId(id) {
     return id ? id.slice(0, 8) : '—';
@@ -103,10 +109,106 @@
     return box;
   }
 
+  // ---------------- field-history dropdown (job/warehouse/material/wbs) ----------------
+  // Shows on focusing the composer input, sourced from ChatResponse.history
+  // (app/store.py:get_field_history) for whichever field is currently
+  // pending — not a fixed menu like appendOptionMenu, since these fields
+  // have many possible values, just some worth surfacing as shortcuts.
+
+  function renderHistoryDropdown() {
+    historyDropdown.innerHTML = '';
+    if (!state.fieldHistory.length) {
+      historyDropdown.appendChild(el('div', 'history-empty', 'No recent values yet'));
+      return;
+    }
+    state.fieldHistory.forEach((item) => {
+      const btn = el('button', 'history-item', item.label);
+      btn.type = 'button';
+      // mousedown (not click) fires before the input's blur — handling
+      // selection here, with preventDefault to keep focus, means the
+      // dropdown doesn't get hidden by blur before the selection registers.
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        hideHistoryDropdown();
+        sendMessage(item.value);
+      });
+      historyDropdown.appendChild(btn);
+    });
+  }
+
+  function showHistoryDropdown() {
+    if (state.fieldHistory === null) return;
+    renderHistoryDropdown();
+    historyDropdown.hidden = false;
+  }
+
+  function hideHistoryDropdown() {
+    historyDropdown.hidden = true;
+  }
+
+  function appendOptionMenu(wrap, options) {
+    // Fixed-choice PR-intake questions (app/tools/pr_intake_tool.py:options_for())
+    // come with a `value` per button — clicking one sends it back exactly
+    // like the customer had typed it, through the normal sendMessage() path,
+    // so it's guaranteed to resolve. Typing is still available as a fallback.
+    const menu = el('div', 'option-menu');
+    const buttons = [];
+    options.forEach((opt) => {
+      const btn = el('button', 'option-btn', opt.label);
+      btn.addEventListener('click', () => {
+        if (state.busy) return;
+        buttons.forEach((b) => (b.disabled = true));
+        btn.classList.add('chosen');
+        sendMessage(opt.value);
+      });
+      buttons.push(btn);
+      menu.appendChild(btn);
+    });
+    wrap.appendChild(menu);
+  }
+
+  function appendPrDownloads(wrap, prId) {
+    // Plain <a> links to app/main.py's GET /purchase-requisitions/{id}/pdf
+    // and /payload — this is a real server, not a sandboxed preview, so a
+    // normal browser download/new-tab-view works with no extra plumbing.
+    const menu = el('div', 'option-menu');
+
+    const previewLink = el('a', 'option-btn preview-btn', 'Preview');
+    previewLink.href = `/purchase-requisitions/${prId}/pdf?inline=1`;
+    previewLink.target = '_blank';
+    previewLink.rel = 'noopener';
+
+    const pdfLink = el('a', 'option-btn download-btn', '⬇ Download PDF');
+    pdfLink.href = `/purchase-requisitions/${prId}/pdf`;
+    pdfLink.setAttribute('download', '');
+
+    const jsonLink = el('a', 'option-btn download-btn', '⬇ Download payload (JSON)');
+    jsonLink.href = `/purchase-requisitions/${prId}/payload`;
+    jsonLink.setAttribute('download', '');
+
+    menu.appendChild(previewLink);
+    menu.appendChild(pdfLink);
+    menu.appendChild(jsonLink);
+    wrap.appendChild(menu);
+  }
+
   function appendAssistantMessage(data) {
+    // ?? (not ||) so an empty-but-applicable history list ([]) isn't
+    // collapsed into "not applicable" (null) — both are falsy under ||.
+    state.fieldHistory = data.history ?? null;
+    hideHistoryDropdown();
+
     const wrap = el('div', 'msg msg-assistant');
     wrap.appendChild(el('div', null, data.answer));
     wrap.appendChild(el('div', 'msg-meta', `${data.agent_used} · intent: ${data.intent}`));
+
+    if (data.options && data.options.length) {
+      appendOptionMenu(wrap, data.options);
+    }
+
+    if (data.pr_number && data.pr_id) {
+      appendPrDownloads(wrap, data.pr_id);
+    }
 
     const actions = el('div', 'msg-actions');
     const upBtn = el('button', 'icon-btn', '👍');
@@ -306,6 +408,8 @@
 
   function newConversation() {
     state.conversationId = newId();
+    state.fieldHistory = null;
+    hideHistoryDropdown();
     messagesEl.innerHTML = '';
     traceLogEl.innerHTML = '';
     convBadge.textContent = 'conv: ' + shortId(state.conversationId);
@@ -333,6 +437,12 @@
     if (state.busy) return;
     newConversation();
   });
+
+  input.addEventListener('focus', showHistoryDropdown);
+  input.addEventListener('blur', hideHistoryDropdown);
+  // Once the customer starts typing their own answer, a stale history list
+  // sitting over the input is just clutter, not help.
+  input.addEventListener('input', hideHistoryDropdown);
 
   loadHealth();
   newConversation();
