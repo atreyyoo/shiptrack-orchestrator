@@ -9,7 +9,7 @@ from app.llm import LLMClient
 
 logger = logging.getLogger("shiptrack.agents.orchestrator")
 
-VALID_INTENTS = {"track_shipment", "file_complaint", "general_faq"}
+VALID_INTENTS = {"track_shipment", "file_complaint", "file_purchase_requisition", "find_vendor", "general_faq"}
 
 
 class OrchestratorAgent:
@@ -41,8 +41,18 @@ class OrchestratorAgent:
         if isinstance(tracking_number, str):
             tracking_number = tracking_number.strip().upper() or None
 
+        # Only meaningful for find_vendor — left as the customer's own
+        # words (never uppercased/normalized) since VendorAgent resolves it
+        # against pr_materials the same free-text way PR intake does.
+        material_query = data.get("material_query")
+        if isinstance(material_query, str):
+            material_query = material_query.strip() or None
+        else:
+            material_query = None
+
         return {
             "intent": intent,
             "tracking_number": tracking_number,
+            "material_query": material_query,
             "reason": data.get("reason", ""),
         }
