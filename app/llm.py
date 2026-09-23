@@ -13,7 +13,6 @@ backends is an .env change, not a code change.
 """
 import json
 import logging
-import random
 import re
 
 from app.config import settings
@@ -103,6 +102,25 @@ class LLMClient:
 _TRACKING_RE = re.compile(r"\bTRK[- ]?\d{4,}\b", re.IGNORECASE)
 _COMPLAINT_WORDS = ("damaged", "broken", "lost", "missing", "complain", "complaint", "refund", "wrong address", "never arrived", "terrible", "awful")
 _TRACKING_WORDS = ("track", "where", "status", "when will", "eta", "arrive", "delivery")
+# Full phrases only (never a bare "pr") to avoid false-positiving on unrelated
+# words like "pretty" or "print".
+_PR_WORDS = ("purchase requisition", "raise a pr", "raise pr", "draft a pr", "draft pr", "create a pr", "file a pr")
+_VENDOR_WORDS = (
+    "cheapest vendor", "cheapest supplier", "best vendor", "best supplier",
+    "compare vendor", "compare price", "compare prices", "vendor for",
+    "supplier for", "who sells", "which vendor", "lowest price",
+)
+# Stripped out of a find_vendor message to approximate the material term
+# alone (e.g. "find me the cheapest vendor selling steel" -> "steel") — a
+# real LLM backend does this extraction properly via ORCHESTRATOR_SYSTEM_
+# PROMPT; this is only the zero-network mock's stand-in for it.
+_VENDOR_FILLER_WORDS = {
+    "find", "me", "the", "a", "an", "cheapest", "cheaper", "best", "lowest",
+    "vendor", "vendors", "supplier", "suppliers", "who", "is", "are",
+    "selling", "sells", "sell", "for", "of", "compare", "price", "prices",
+    "pricing", "which", "on", "us", "please", "can", "you", "give", "show",
+    "i", "need", "want", "to", "buy",
+}
 
 
 def _mock_chat(system_prompt: str, user_prompt: str, json_mode: bool) -> str:
@@ -112,6 +130,8 @@ def _mock_chat(system_prompt: str, user_prompt: str, json_mode: bool) -> str:
         return _mock_orchestrator(user_prompt)
     if "Escalation" in system_prompt:
         return _mock_escalation(user_prompt)
+    if "Vendor" in system_prompt:
+        return _mock_vendor(user_prompt)
     return _mock_tracking(user_prompt)
 
 
@@ -147,20 +167,33 @@ def _extract_tracking_number(text: str) -> str | None:
     return match.group(0).upper().replace(" ", "").replace("-", "")
 
 
+def _extract_material_query(text: str) -> str | None:
+    words = re.findall(r"[a-zA-Z0-9]+", text.lower())
+    kept = [w for w in words if w not in _VENDOR_FILLER_WORDS]
+    return " ".join(kept) or None
+
+
 def _mock_orchestrator(user_prompt: str) -> str:
     lower = user_prompt.lower()
     tracking_number = _extract_tracking_number(user_prompt)
 
-    if any(word in lower for word in _COMPLAINT_WORDS):
+    if any(phrase in lower for phrase in _VENDOR_WORDS):
+        intent = "find_vendor"
+    elif any(phrase in lower for phrase in _PR_WORDS):
+        intent = "file_purchase_requisition"
+    elif any(word in lower for word in _COMPLAINT_WORDS):
         intent = "file_complaint"
     elif tracking_number or any(word in lower for word in _TRACKING_WORDS):
         intent = "track_shipment"
     else:
         intent = "general_faq"
 
+    material_query = _extract_material_query(user_prompt) if intent == "find_vendor" else None
+
     return json.dumps({
         "intent": intent,
         "tracking_number": tracking_number,
+        "material_query": material_query,
         "reason": f"[mock] matched heuristic for '{intent}'",
     })
 
@@ -197,22 +230,55 @@ def _mock_tracking(user_prompt: str) -> str:
     return sentence
 
 
+def _mock_vendor(user_prompt: str) -> str:
+    # user_prompt embeds the Context JSON built by VendorAgent.answer() —
+    # {"material": dict|None, "vendors": [...]} sorted cheapest-first.
+    match = re.search(r"Context \(JSON.*?:\s*(\{.*\})", user_prompt, re.DOTALL)
+    try:
+        ctx = json.loads(match.group(1)) if match else {}
+    except json.JSONDecodeError:
+        ctx = {}
+
+    material = ctx.get("material")
+    vendors = ctx.get("vendors") or []
+
+    if not material:
+        return ("[mock] I couldn't match that to anything in our material catalog — "
+                "could you give me a material code or a more specific description?")
+
+    description = material.get("description", material.get("material_code", "that material"))
+    if not vendors:
+        return f"[mock] I found '{description}' in the catalog, but no vendor pricing is on file for it yet."
+
+    cheapest = vendors[0]
+    sentence = (
+        f"[mock] The cheapest option for {description} is {cheapest.get('vendor_name')} "
+        f"at {cheapest.get('price')} per {cheapest.get('uom_code')}."
+    )
+    if len(vendors) > 1:
+        sentence += f" {len(vendors) - 1} other vendor(s) also carry it."
+    return sentence
+
+
 def _mock_escalation(user_prompt: str) -> str:
+    # Priority is no longer part of this agent's job (see derive_priority in
+    # app/tools/ticket_tools.py) — mock only needs to pick issue_type.
     lower = user_prompt.lower()
     if "damaged" in lower or "broken" in lower:
-        issue_type, priority = "damaged", "high"
+        issue_type = "damaged"
     elif "lost" in lower or "missing" in lower or "never arrived" in lower:
-        issue_type, priority = "lost", "urgent"
+        issue_type = "lost"
     elif "wrong address" in lower:
-        issue_type, priority = "wrong_address", "medium"
+        issue_type = "wrong_address"
     elif "unsatisfactory" in lower or "not helpful" in lower or "don't like" in lower or "didn't like" in lower:
-        issue_type, priority = "unsatisfactory_response", "low"
+        issue_type = "unsatisfactory_response"
+    elif "delayed" in lower or "delay" in lower or "late" in lower:
+        issue_type = "delayed"
     else:
-        issue_type, priority = "other", random.choice(["low", "medium"])
+        issue_type = "other"
 
     return json.dumps({
         "issue_type": issue_type,
-        "priority": priority,
         "subject": f"[mock] Customer issue: {issue_type.replace('_', ' ')}",
         "description": f"[mock-drafted ticket] Customer reported an issue classified as '{issue_type}'. "
                         f"Original context: {user_prompt[:400]}",
