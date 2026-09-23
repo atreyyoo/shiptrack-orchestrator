@@ -204,6 +204,326 @@
           "path": ["customers", "alice@example.com", "shipments"]
         }
       }
+    },
+    {
+      "name": "10. Chat — Draft a PR (start)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"I need to raise a purchase requisition\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Orchestrator routes to file_purchase_requisition -> the PRIntake gate (app/tools/pr_intake_tool.py) starts asking one fixed-order field per turn: Job -> Warehouse -> PR Category -> Planning Category -> Supply At -> Material -> WBS -> Quantity. Uses its own fresh conversation (leave conversation_id blank). Run requests 11-18 in order to answer each field and submit the PR."
+      }
+    },
+    {
+      "name": "11. Chat — Draft a PR (answer: Job)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"LE24M128\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Resolved against pr_jobs (app/tools/pr_master_data_tools.py) — LE24M128 = 'Line Expansion 24 — Phase M'."
+      }
+    },
+    {
+      "name": "12. Chat — Draft a PR (answer: Warehouse)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"8322\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Resolved against pr_warehouses — 8322 = 'Main Site Warehouse'. The next question (PR Category) has a fixed set of choices, so the response's `options` array is populated — a frontend renders it as a clickable menu."
+      }
+    },
+    {
+      "name": "13. Chat — Draft a PR (answer: PR Category)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"Capital\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "'Capital' matches pr_category_options (Revenue | Capital) — one of the three fixed-choice reference-table fields, so this could equally be sent by clicking the option from request #12's response instead of typing it."
+      }
+    },
+    {
+      "name": "14. Chat — Draft a PR (answer: Planning Category)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"Routine\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Matches pr_planning_category_options (Routine | Urgent | Planned | Emergency)."
+      }
+    },
+    {
+      "name": "15. Chat — Draft a PR (answer: Supply At)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"Own premises\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Matches pr_supply_at_options (Own premises | Vendor) — sets hpR_Own_Premises on the eventual payload. Next question (Material) is free text, so `options` goes back to null."
+      }
+    },
+    {
+      "name": "16. Chat — Draft a PR (answer: Material)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"steel packing wire\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Resolved against pr_materials -> 6CA1M0005000000 'Steel packing wire'. UOM and catalog Suggested Rate are derived from this row, not asked. Because this material has vendor pricing on file, the next question is Vendor (request #17), with a clickable options menu (ChatResponse.options) of every vendor selling it, cheapest first — pick a material with no vendor pricing instead (e.g. 'gate valve') and PRIntake auto-skips straight to WBS."
+      }
+    },
+    {
+      "name": "17. Chat — Draft a PR (answer: Vendor)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"Bharat Metal Traders\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Resolved against pr_vendor_material_prices, scoped to the Steel packing wire material_code (app/tools/vendor_tools.py:resolve_vendor) — Bharat Metal Traders is the cheapest of 4 vendors selling it (58900.00/MT). This choice flows into the final payload: DraftPRAgent (app/agents/pr_draft_agent.py) computes dpR_Suggested_Rate/dpR_Value from THIS vendor's price rather than the material's generic catalog rate, and appends 'Vendor: Bharat Metal Traders (VND-1002)' to hpR_Remarks — there's no dedicated vendor field in the example ERP payload, so this avoids inventing one."
+      }
+    },
+    {
+      "name": "18. Chat — Draft a PR (answer: WBS)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"WP100002-S\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Resolved against pr_wbs, scoped to job LE24M128 (WP100002-S = 'Structural steel works', cost package 6064-2100-0, derived not asked). The final question (Quantity) names the material and states real available stock, e.g. 'What quantity of Steel packing wire do you need? (340 MT available)'."
+      }
+    },
+    {
+      "name": "19. Chat — Draft a PR (answer: Quantity — submits)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);",
+              "console.log('pr_number:', data.pr_number, '| pr_id:', data.pr_id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"conversation_id\": \"{{conversationId}}\",\n  \"message\": \"10 MT\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Well within available stock, so it's accepted. All 9 fields are now resolved (including Vendor from request #17): DraftPRAgent (app/agents/pr_draft_agent.py) assembles the submit-draft-PR payload — using Bharat Metal Traders' price for the rate/value, not the catalog suggested_rate — and app/tools/pr_submit_tool.py posts it — to the real ERP if PR_SUBMIT_URL is set, otherwise a deterministic mock (PR/MOCK/00001, ...) so this runs with no ERP access. The result comes back as `pr_number`/`pr_id` — use pr_id with GET /purchase-requisitions/{pr_id}/pdf or /payload to download it (the PDF's Vendor row shows the choice). pr_materials.available_qty for steel packing wire is decremented by 10."
+      }
+    },
+    {
+      "name": "20. Chat — Find Cheapest Vendor",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "if (data.conversation_id) pm.collectionVariables.set('conversationId', data.conversation_id);",
+              "if (data.message_id) pm.collectionVariables.set('messageId', data.message_id);",
+              "console.log('intent:', data.intent, '| agent:', data.agent_used);",
+              "console.log('answer:', data.answer);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Find me the cheapest vendor selling steel\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/chat", "host": ["{{baseUrl}}"], "path": ["chat"] },
+        "description": "Orchestrator routes to find_vendor and extracts \"steel\" as material_query. app/tools/vendor_tools.py resolves it against pr_materials (same free-text matching PR intake uses in request #16) then fetches every vendor's price for it from pr_vendor_material_prices, cheapest first. VendorAgent (app/agents/vendor_agent.py) composes a recommendation strictly grounded in those rows — never inventing a vendor or price. Uses its own fresh conversation (leave conversation_id blank)."
+      }
     }
   ]
 }

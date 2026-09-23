@@ -211,6 +211,44 @@ body {
 .cancel-btn:hover { background: #f3f4f6; }
 .cancel-btn:disabled { opacity: 0.6; cursor: default; }
 
+.option-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.option-btn {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.option-btn:hover { background: #e0e7ff; }
+.option-btn:disabled { opacity: 0.5; cursor: default; }
+.option-btn.chosen { background: #c7d2fe; border-color: #a5b4fc; }
+
+.download-btn {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+  text-decoration: none;
+  display: inline-block;
+}
+.download-btn:hover { background: #d1fae5; }
+
+.preview-btn {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+  text-decoration: none;
+  display: inline-block;
+}
+.preview-btn:hover { background: #dbeafe; }
+
 .thinking {
   align-self: flex-start;
   color: #9ca3af;
@@ -222,12 +260,49 @@ body {
 /* ---------- composer ---------- */
 
 .composer {
+  position: relative;
   display: flex;
   gap: 8px;
   padding: 14px 20px;
   border-top: 1px solid #e5e7eb;
   background: white;
   flex-shrink: 0;
+}
+
+.history-dropdown {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 100%;
+  margin-bottom: 6px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 20;
+}
+.history-dropdown[hidden] { display: none; }
+
+.history-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  border-top: 1px solid #f3f4f6;
+  background: none;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.history-item:first-child { border-top: none; }
+.history-item:hover { background: #f3f4f6; }
+
+.history-empty {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #9ca3af;
 }
 
 .composer input {
@@ -329,6 +404,12 @@ body {
 
 .trace-line.agent-ticketintake { border-left-color: #818cf8; }
 .trace-line.agent-ticketintake .t-head { color: #a5b4fc; }
+
+.trace-line.agent-printake { border-left-color: #facc15; }
+.trace-line.agent-printake .t-head { color: #fde047; }
+
+.trace-line.agent-draftpragent { border-left-color: #4ade80; }
+.trace-line.agent-draftpragent .t-head { color: #86efac; }
 
 .trace-line.status-error { border-left-color: #f87171; }
 .trace-line.status-error .t-head { color: #fca5a5; }
